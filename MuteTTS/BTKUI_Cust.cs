@@ -320,9 +320,16 @@ namespace MuteTTS
 
                 string currentVoiceCat()
                 {
-                    var cur = MuteTTSMod.voicesDict[MuteTTSMod.useVoiceSetting.Value];
-                    var trimmed = cur.Substring(0, cur.IndexOf("-")).Trim();
-                    return $"Voices - Current: {trimmed}";
+                    if (MuteTTSMod.voicesDict.ContainsKey(MuteTTSMod.useVoiceSetting.Value))
+                    {
+                        var cur = MuteTTSMod.voicesDict[MuteTTSMod.useVoiceSetting.Value];
+                        var trimmed = cur.Substring(0, cur.IndexOf("-")).Trim();
+                        return $"Voices - Current: {trimmed}";
+                    }
+                    else
+                    {
+                        return "Voices - Current: Default (-1)";
+                    }
                 }
 
                 var catVoices = page.AddCategory(currentVoiceCat());

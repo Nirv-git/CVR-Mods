@@ -28,7 +28,7 @@ namespace MuteTTS
 {
     public class MuteTTSMod : MelonMod
     {
-        public const string versionStr = "1.2.2";
+        public const string versionStr = "1.2.3";
 
         public static MuteTTSMod Instance;
         private Thread _mainThread;
