@@ -1,3 +1,4 @@
+## Back again, thanks to BBC! (Better Better Communications)
 
 ## Now with BTKUI Support! 
     
@@ -12,7 +13,8 @@ The goal of this update was to move the keyboard to a more accessible menu and p
 * Keyboard hotkey for freeform keyboard input (Default: Right Control)
 * Parameter support when mod is speaking - "MuteTTSplaying", "MuteTTSprocessing", "MuteTTSplaying"
 
-The original keyboard button is still available in the big menu Settings -> Implementation
+The original keyboard button is still available in the big menu Settings -> Implementation or the Shortcuts of the Home menu       
+![image](https://github.com/Nirv-git/CVR-Mods/assets/81605232/0804ff03-080d-46c5-a24f-0cef3b5aca60)![image](https://github.com/Nirv-git/CVR-Mods/assets/81605232/4ddf7a4e-3476-4da9-8cf4-69b0b37442a3)
 
 ### Customizing messages
 

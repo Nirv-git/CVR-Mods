@@ -51,13 +51,6 @@ namespace MuteTTS
 
         private static float lastMsgSent = 0f;
 
-        private static FieldInfo _uiInstance = typeof(QMUIElement).Assembly.GetType("BTKUILib.UserInterface").GetField("Instance", BindingFlags.NonPublic | BindingFlags.Static);
-        private static MethodInfo _registerRootPage = typeof(QMUIElement).Assembly.GetType("BTKUILib.UserInterface").GetMethod("RegisterRootPage", BindingFlags.NonPublic | BindingFlags.Instance);
-        public static void HackRegisterRoot(Page element)
-        {
-            _registerRootPage.Invoke(_uiInstance.GetValue(null), new object[] { element });
-        }
-
         public static void UpdateUI(bool newValue, bool oldValue) { ChangeButtons(); }
         public static void UpdateUI(int newValue, int oldValue) { ChangeButtons(); }
 
@@ -66,12 +59,10 @@ namespace MuteTTS
         {
             foreach (var cat in generatedCats)
             {
-                ((Category)cat).Delete();
+                if (cat != null) ((Category)cat).Delete();
             }
             generatedCats.Clear();
-            PopulateQuickMessages();
-            PopulateCannedMessages();
-            PopulateCustListMessages();
+            PopulateMessagesCats();
         }
 
         public static void SetupUI()
@@ -79,23 +70,23 @@ namespace MuteTTS
             loadAssets();
 
             pageSettings = new Page("MuteTTS", "MuteTTS - Settings", false);
-            HackRegisterRoot((Page)pageSettings);
+            QuickMenuAPI.AddRootPage((Page)pageSettings);
             pageHistory = new Page("MuteTTS", "MuteTTS - History", false);
-            HackRegisterRoot((Page)pageHistory);
+            QuickMenuAPI.AddRootPage((Page)pageHistory);
             pageCustomMessages = new Page("MuteTTS", "MuteTTS - Custom Messages", false);
-            HackRegisterRoot((Page)pageCustomMessages);
+            QuickMenuAPI.AddRootPage((Page)pageCustomMessages);
             pageCustMsgManagement = new Page("MuteTTS", "MuteTTS - Custom Messages Management", false);
-            HackRegisterRoot((Page)pageCustMsgManagement);
+            QuickMenuAPI.AddRootPage((Page)pageCustMsgManagement);
             pageCustMsgAdd = new Page("MuteTTS", "MuteTTS - Custom Messages Add", false);
-            HackRegisterRoot((Page)pageCustMsgAdd);
+            QuickMenuAPI.AddRootPage((Page)pageCustMsgAdd);
             pageMostCommon = new Page("MuteTTS", "MuteTTS - Most Common Messages", false);
-            HackRegisterRoot((Page)pageMostCommon);
+            QuickMenuAPI.AddRootPage((Page)pageMostCommon);
 
             if (MuteTTSMod.useMiscPage.Value)
             {
                 var catMisc = QuickMenuAPI.MiscTabPage.AddCategory("MuteTTS", "MuteTTS");
                 pageMuteTTSRoot = new Page("MuteTTS", "Mute TTS", false);
-                HackRegisterRoot((Page)pageMuteTTSRoot);
+                QuickMenuAPI.AddRootPage((Page)pageMuteTTSRoot);
                 catMisc.AddButton("Open MuteTTS Menu", "MTTS-TextToSpeach", "Page for MuteTTS options").OnPress += () =>
                 {
                     ((Page)pageMuteTTSRoot).OpenPage();
@@ -139,16 +130,24 @@ namespace MuteTTS
                 OpenCustMessages();
             };
 
+            PopulateMessagesCats();
+        }
 
-            quickButtons = page.AddCategory(QuickCatString());
+        public static void PopulateMessagesCats()
+        {
+            var page = (Page)pageMuteTTSRoot;
+
+            if (quickButtons != null && ((Category)quickButtons).IsGenerated) ((Category)quickButtons).Delete();
+            quickButtons = page.AddCategory(QuickCatString(), !MuteTTSMod.disableCatNames.Value, false, false);
             PopulateQuickMessages();
 
-            cannedButtons = page.AddCategory(CannedCatString());
+            if (cannedButtons != null && ((Category)cannedButtons).IsGenerated) ((Category)cannedButtons).Delete();
+            cannedButtons = page.AddCategory(CannedCatString(), !MuteTTSMod.disableCatNames.Value, false, false);
             PopulateCannedMessages();
 
-            customListButtons = page.AddCategory(CustListCatString());
+            if (customListButtons != null && ((Category)customListButtons).IsGenerated) ((Category)customListButtons).Delete();
+            if (!MuteTTSMod.mergeCustomAndCannedLists.Value || !MuteTTSMod.loadCannedLists.Value) customListButtons = page.AddCategory(CustListCatString(), !MuteTTSMod.disableCatNames.Value, false, false);
             PopulateCustListMessages();
-            
         }
 
         private static string QuickCatString()
@@ -186,7 +185,7 @@ namespace MuteTTS
         }
         public static void PopulateCannedMessages()
         {
-            if (((Category)cannedButtons).IsGenerated)
+            if (cannedButtons != null && ((Category)cannedButtons).IsGenerated)
             {
                 ((Category)cannedButtons).CategoryName = CannedCatString();
                 ((Category)cannedButtons).ClearChildren();
@@ -211,7 +210,7 @@ namespace MuteTTS
                 if (!Utils.IsLayerEnabled(MuteTTSMod.enabledCannedLists.Value, makingCat.Item5)) continue;
                     string catname = makingCat.Item1;
                     var pageSub = cat5.AddPage(catname, makingCat.Item4, makingCat.Item2, "MuteTTS");
-                    var subCat = pageSub.AddCategory(catname);
+                    var subCat = pageSub.AddCategory(catname, true, false);
                     generatedCats.Add(subCat);
                     foreach (var saying in makingCat.Item3)
                     {
@@ -237,7 +236,7 @@ namespace MuteTTS
         }
         public static void PopulateCustListMessages()
         {
-            if (((Category)customListButtons).IsGenerated)
+            if (customListButtons != null && ((Category)customListButtons).IsGenerated)
             {
                 ((Category)customListButtons).CategoryName = CustListCatString();
                 ((Category)customListButtons).ClearChildren();
@@ -254,7 +253,7 @@ namespace MuteTTS
             {
                 string catname = makingCat.Key;
                 var pageSub = cat10.AddPage(catname, "MTTS-Trans", $"Custom List: {makingCat.Key}", "MuteTTS");
-                var subCat = pageSub.AddCategory(catname);
+                var subCat = pageSub.AddCategory(catname, true, false);
                 generatedCats.Add(subCat);
                 foreach (var saying in makingCat.Value)
                 {
@@ -416,7 +415,7 @@ namespace MuteTTS
 
                 pageSettingsCannedMask = cat10.AddPage("Enable/Disable Specific", "MTTS-Grid-Icons", "Enable/Disable Specific Canned Messages Categories", "MuteTTS");
                 if (((Page)pageSettingsCannedMask).IsGenerated) ((Page)pageSettingsCannedMask).ClearChildren();
-                var cannedSpecificCat = ((Page)pageSettingsCannedMask).AddCategory("Enable Specific Categories");
+                var cannedSpecificCat = ((Page)pageSettingsCannedMask).AddCategory("Enable Specific Categories", true, false);
                 var catsToMake = new List<(string, int)>()
                     {
                         {("Greetings Farewells", 1)},
@@ -497,14 +496,14 @@ namespace MuteTTS
                     MuteTTSMod.cat.SaveToFile(false);
                 };
 
-                var cat2 = page.AddCategory("Past Messages");
+                var cat2 = page.AddCategory("Past Messages", true, false);
                 if (MuteTTSMod.pastMessages.Count == 0)
                 {
-                    page.AddCategory("");
-                    page.AddCategory("");
-                    page.AddCategory("");
-                    page.AddCategory("");
-                    page.AddCategory("History is empty");
+                    page.AddCategory("", true, false);
+                    page.AddCategory("", true, false);
+                    page.AddCategory("", true, false);
+                    page.AddCategory("", true, false);
+                    page.AddCategory("History is empty", true, false);
                 }
                 foreach (var msg in MuteTTSMod.pastMessages.Reverse<string>())
                 {
@@ -545,14 +544,14 @@ namespace MuteTTS
                     }, () => { }, "Yes", "No");
                 };
 
-                var cat2 = page.AddCategory("Past Common Messages");
+                var cat2 = page.AddCategory("Past Common Messages", true, false);
                 if (MuteTTSMod.mostUsedmsg.Count == 0)
                 {
-                    page.AddCategory("");
-                    page.AddCategory("");
-                    page.AddCategory("");
-                    page.AddCategory("");
-                    page.AddCategory("Common History is empty");
+                    page.AddCategory("", true, false);
+                    page.AddCategory("", true, false);
+                    page.AddCategory("", true, false);
+                    page.AddCategory("", true, false);
+                    page.AddCategory("Common History is empty", true, false);
                 }
                 foreach (var msg in MuteTTSMod.mostUsedmsg.OrderBy(x => x.Value).Reverse())
                 {
@@ -587,15 +586,15 @@ namespace MuteTTS
 
                 if (CannedMessages.listCustom.Count == 0)
                 {
-                    page.AddCategory("");
-                    page.AddCategory("");
-                    page.AddCategory("");
-                    page.AddCategory("");
-                    page.AddCategory("List is empty");
-                    page.AddCategory("You can add custom messages in the settings menu.");
+                    page.AddCategory("", true, false);
+                    page.AddCategory("", true, false);
+                    page.AddCategory("", true, false);
+                    page.AddCategory("", true, false);
+                    page.AddCategory("List is empty", true, false);
+                    page.AddCategory("You can add custom messages in the settings menu.", true, false);
                 }
 
-                var cat2 = page.AddCategory("");
+                var cat2 = page.AddCategory("", true, false);
                 foreach (var msg in CannedMessages.listCustom)
                 {
                     cat2.AddButton(FitToButton(msg), "MTTS-Trans", $"Say: {msg}").OnPress += () =>
@@ -626,19 +625,19 @@ namespace MuteTTS
 
                 if(CannedMessages.listCustom.Count == 0)
                 {
-                    page.AddCategory("");
-                    page.AddCategory("");
-                    page.AddCategory("");
-                    page.AddCategory("");
-                    page.AddCategory("List is empty");
+                    page.AddCategory("", true, false);
+                    page.AddCategory("", true, false);
+                    page.AddCategory("", true, false);
+                    page.AddCategory("", true, false);
+                    page.AddCategory("List is empty", true, false);
                 }
 
                 for (int i = 0; i < CannedMessages.listCustom.Count; i++)
                 {
                     var pos = i;
                     var msg = CannedMessages.listCustom[pos];
-                    var catTemp = page.AddCategory($"{pos}: {WrapCatLine(msg)}");
-                   
+                    var catTemp = page.AddCategory($"{pos}: {(msg)}", true, false); //WrapCatLine
+
                     catTemp.AddButton("Move Up", "MTTS-Up", $"Move Up one Position").OnPress += () =>
                     {
                         if (pos > 0)
@@ -708,7 +707,7 @@ namespace MuteTTS
 
                 foreach (var msg in MuteTTSMod.pastMessages.Reverse<string>())
                 {
-                    var catTemp = page.AddCategory(WrapCatLine(msg));
+                    var catTemp = page.AddCategory((msg), true, false); //WrapCatLine
 
                     catTemp.AddButton("Add to top of list", "MTTS-Up", $"Add to custom list at the top position").OnPress += () =>
                     {

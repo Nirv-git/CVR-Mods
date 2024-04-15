@@ -1,5 +1,5 @@
 ﻿using ABI_RC.Core.InteractionSystem;
-using Dissonance.Audio.Capture;
+using ABI_RC.Systems.Communications;
 using HarmonyLib;
 using MelonLoader;
 using MuteTTS;
@@ -19,6 +19,7 @@ using ABI_RC.Core.Player;
 using ABI_RC.Core.Base;
 using ABI_RC.Core;
 using ABI_RC.Core.UI;
+using ABI_RC.Systems.Communications.Audio.Components;
 
 [assembly: MelonInfo(typeof(MuteTTSMod), "MuteTTS", MuteTTSMod.versionStr, "Nirvash, Eric van Fandenfart")] //Put Nirvash first so people know who to complain to if something breaks
 [assembly: MelonGame]
@@ -28,21 +29,21 @@ namespace MuteTTS
 {
     public class MuteTTSMod : MelonMod
     {
-        public const string versionStr = "1.2.3";
+        public const string versionStr = "1.3";
 
         public static MuteTTSMod Instance;
         private Thread _mainThread;
         public Queue<Action> MainThreadQueue = new Queue<Action>();
 
         public static Action<string> OnKeyboardSubmitted;
-        private static MemoryStream stream = new MemoryStream();
-        private static AudioSource audiosource = null;
-        private static bool playing = false;
-        private static bool playingTone = false;
-        private static bool lastMuteValue;
+        public static MemoryStream stream = new MemoryStream();
+        public static AudioSource audiosource = null;
+        public static bool playing = false;
+        public static bool playingTone = false;
+        public static bool lastMuteValue;
         public static bool unMuteRunning = false;
-        private string lastLineRead;
-        private string exeLocation;
+        public string lastLineRead;
+        public string exeLocation;
 
         public static MelonPreferences_Category cat;
         private static MelonPreferences_Entry<bool> BTKUILib_en;
@@ -83,7 +84,7 @@ namespace MuteTTS
         private static float lastBlockMicNotif = 0f;
 
         private static bool btkUI_init = false;
-        
+
         public override void OnApplicationStart()
         {
             Instance = this;
@@ -100,13 +101,14 @@ namespace MuteTTS
             blockMic = category.CreateEntry("BlockMic", false, "CVR will no longer be able to send your Voice. Only TTS is available");
             blockMicAlert = category.CreateEntry("blockMicAlert", true, "Alert if speaking with blocked mic");
             unMuteWhileSpeaking = category.CreateEntry("unMuteWhileSpeaking", true, "Unmute mic when trying to use TTS");
-            TTSVolume = category.CreateEntry("TTS Volume", 1f, description: "Value between 0 and 1");
+            TTSVolume = category.CreateEntry("TTS Volume", .7f, description: "Value between 0 and 1");
             TTSSpeed = category.CreateEntry("TTS Speed", 1f);
-            
+
             useHotkey = category.CreateEntry("useHotkey", true, "Pressing the hotkey will open the keyboard.");
             hotkey = category.CreateEntry("hotkey", "RightControl", "Keybind key", description: "See here for a list of keycodes https://docs.unity3d.com/ScriptReference/KeyCode.html");
             hotkeyCode = Utils.ParseKeycode(hotkey.Value, KeyCode.RightControl);
-            hotkey.OnEntryValueChanged.Subscribe((oldValue, newValue) => {
+            hotkey.OnEntryValueChanged.Subscribe((oldValue, newValue) =>
+            {
                 hotkeyCode = Utils.ParseKeycode(newValue, KeyCode.RightControl);
             });
 
@@ -127,8 +129,6 @@ namespace MuteTTS
             ExtractExecutable();
 
             LogAvailableVoices();
-
-            HarmonyInstance.Patch(typeof(BasicMicrophoneCapture).GetMethod("ConsumeSamples", BindingFlags.Instance | BindingFlags.NonPublic), prefix: new HarmonyMethod(typeof(MuteTTSMod).GetMethod("ConsumeSamples", BindingFlags.Static | BindingFlags.Public)));
 
             if (MelonHandler.Mods.Any(m => m.Info.Name == "BTKUILib") && BTKUILib_en.Value)
             {
@@ -152,7 +152,7 @@ namespace MuteTTS
             }
             else MelonLogger.Msg("BTKUILib is missing, or setting is toggled off in Mod Settings - Not adding controls to BTKUILib");
         }
-        
+
         public override void OnUpdate()
         {
             if (useHotkey.Value)
@@ -184,10 +184,10 @@ namespace MuteTTS
             }
         }
 
-        private void SetParam(string name, float value)
+        public void SetParam(string name, float value)
         {
             //MelonLogger.Msg($"Setting {name} to {value}");
-            if(parmDriving.Value) PlayerSetup.Instance.animatorManager.SetAnimatorParameter(name, value);
+            if (parmDriving.Value) PlayerSetup.Instance.animatorManager.SetParameter(name, value);
         }
 
         public void KeyboardParam(bool state)
@@ -257,7 +257,8 @@ namespace MuteTTS
             {
                 if (logVoices)
                 {
-                    MelonLogger.Msg(ConsoleColor.Cyan, text);
+                    //MelonLogger.Msg(ConsoleColor.Cyan, text);
+                    MelonLogger.Msg(text);
                     int index = text.IndexOf(' ');
                     int number = int.Parse(text.Substring(0, index));
                     string name = text.Substring(index + 1);
@@ -271,7 +272,8 @@ namespace MuteTTS
         public void GetVoice(string msg = "Hello World", bool audiosourceOnly = false)
         {
             KeyboardParam(false);
-            Task.Run(() => {
+            Task.Run(() =>
+            {
                 try
                 {
                     if (!audiosourceOnly) SetParam("MuteTTSprocessing", 1f);
@@ -410,7 +412,7 @@ namespace MuteTTS
             AudioClip myClip = AudioClip.Create("MuteTTS", buffer.Length, 1, 48000, false);
             try
             {
-                
+
                 float[] t = new float[buffer.Length];
                 for (int i = 0; i < buffer.Length; i++)
                 {
@@ -424,9 +426,9 @@ namespace MuteTTS
             catch (Exception ex) { MelonLogger.Warning($"Error creating audio clip\n" + ex.ToString()); }
             //finally
             //{
-                // Without this Unity's GC does slowly get rid of these, but they can build up if doing repeat, very large clips.
-                // Keep in mind to remove if Queuing audio stuff
-                //UnityEngine.Object.Destroy(myClip);
+            // Without this Unity's GC does slowly get rid of these, but they can build up if doing repeat, very large clips.
+            // Keep in mind to remove if Queuing audio stuff
+            //UnityEngine.Object.Destroy(myClip);
             //}
             processingAudioClip = false;
             return null;
@@ -458,17 +460,23 @@ namespace MuteTTS
 
         public void MuteSpeakToggle(bool unmute)
         { //This logic should be redone?
+            MelonLogger.Msg(System.ConsoleColor.Green, $"MuteSpeakToggle: {unmute}");
+            MelonLogger.Msg($"unMuteRunning:{unMuteRunning} - lastMuteValue:{lastMuteValue}");
             if (!unMuteWhileSpeaking.Value) return;
             if (unmute && !unMuteRunning)
             {
                 unMuteRunning = true;
-                lastMuteValue = RootLogic.Instance.comms.IsMuted;
+                lastMuteValue = Comms_Manager.IsMicMuted;
                 SetMicMute(false); //Unmute mic
+                MelonLogger.Msg(System.ConsoleColor.DarkYellow, $"Unmute Mic - unMuteRunning:{unMuteRunning} - lastMuteValue:{lastMuteValue}");
             }
-            else if (!unmute && lastMuteValue)
+            else if (!unmute && unMuteRunning)
             {
+                MelonLogger.Msg(System.ConsoleColor.Yellow, $"Mute Mic 1");
+
                 unMuteRunning = false;
                 SetMicMute(lastMuteValue);
+                MelonLogger.Msg(System.ConsoleColor.Yellow, $"Mute Mic 2");
             }
         }
 
@@ -476,61 +484,9 @@ namespace MuteTTS
         {
             EnqueueIfNotMainThread(() =>
             {
-                Audio.SetMicrophoneActive(muted);
+                MelonLogger.Msg($"SetMicMute {muted}");
+                AudioManagement.SetMicrophoneActive(!muted);
             });
-        }
-
-        public static void ConsumeSamples(ref ArraySegment<float> samples)
-        {
-            if (playing)
-            {
-                byte[] buffer = new byte[samples.Count];
-                int read = stream.Read(buffer, 0, samples.Count);
-
-                if (read == 0)
-                {
-                    Instance.SetParam("MuteTTSplaying", 0f);
-                    Instance.MuteSpeakToggle(false);
-                    playing = false;
-                    playingTone = false;
-                    return;
-                }
-
-                for (int i = 0; i < samples.Count; i++)
-                {
-                    if (i < read)
-                        samples.Array[i] = ((float)buffer[i] - 128) / 128;
-                    else
-                        samples.Array[i] = 0;
-                }
-
-            }
-            else if (blockMic.Value)
-            {
-                if (blockMicAlert.Value)
-                {
-                    float sum = 0;
-                    int count = 0;
-                    for (int i = 0; i < samples.Count; i++)
-                    {
-                        sum += Math.Abs(samples.Array[i] * 1000);
-                        count++;
-                        samples.Array[i] = 0;
-                    }
-                    if ((sum / count) > 30)
-                    {
-                        MicIsBlocked();
-                        //MelonLogger.Msg(ConsoleColor.Cyan, $"Heard: {sum / count} - {sum} - {count}");
-                    }
-                }
-                else
-                {
-                    for (int i = 0; i < samples.Count; i++)
-                    {
-                        samples.Array[i] = 0;
-                    }
-                }
-            }
         }
 
 
@@ -546,7 +502,7 @@ namespace MuteTTS
             }
         }
 
-        public void OpenTTSInput() 
+        public void OpenTTSInput()
         {
             KeyboardParam(true);
             OpenKeyboard("", (str) => GetVoice(str));
@@ -561,6 +517,8 @@ namespace MuteTTS
         //https://github.com/SDraw/ml_mods_cvr/blob/master/ml_fpt/resources/menu.js
         public IEnumerator WaitForMainMenuView()
         {
+            yield return null;
+
             while (ViewManager.Instance == null)
                 yield return null;
             while (ViewManager.Instance.gameMenuView == null)
@@ -574,22 +532,109 @@ namespace MuteTTS
             };
 
             ViewManager.Instance.gameMenuView.Listener.FinishLoad += (_) =>
-            {
-                ViewManager.Instance.gameMenuView.View.ExecuteScript(@"﻿{
-    var l_block = document.createElement('div');
-            l_block.innerHTML = `<h2> MuteTTS </h2><div class=""action-btn"" onclick=""engine.trigger('MelonMod_MuteTTS_Action');"">MuteTTS</div>`;
-        document.getElementById('settings-implementation').appendChild(l_block);
-    }");
+            { //Thanks SDraw for better formatting https://github.com/SDraw/ml_mods_cvr/blob/e55f4b3098d131e6fcd3c942eec01108b3f9da2d/ml_bft/resources/mod_menu.js#L1
+                ViewManager.Instance.gameMenuView.View._view.ExecuteScript(@"﻿{
+            let l_block = document.createElement('div');
+            l_block.innerHTML = `
+            <div class =""settings-subcategory"">
+            <div class =""subcategory-name"">MuteTTS - Mod</div>
+            <div class =""subcategory-description"">Send Text to Speech Messages - More options in BTKUI</div>
+            </div>
+            <div class=""action-btn button"" onclick=""engine.trigger('MelonMod_MuteTTS_Action');"">MuteTTS</div>
+            `;
+            document.getElementById('settings-implementation').appendChild(l_block);
+            }");
+
+                ViewManager.Instance.gameMenuView.View._view.ExecuteScript(@"﻿{
+            let l_block = document.createElement('div');
+            l_block.innerHTML = `
+            <div class=""action-btn button"" onclick=""engine.trigger('MelonMod_MuteTTS_Action');"">MuteTTS Mod</div>
+            `;
+            document.querySelector('.content-shortcuts-2 .btn-row-wrapper.actions').appendChild(l_block);
+            }");
             };
         }
     }
 
-    [HarmonyPatch(typeof(ViewManager))]
-    class ViewManagerPatches
+
+    [HarmonyPatch]
+    internal class HarmonyPatches
     {
-        [HarmonyPatch("SendToWorldUi")]
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(ABI_RC.Systems.Communications.Audio.Components.Comms_CapturePipeline), nameof(Comms_CapturePipeline.OnDataReceived))]
+        internal static bool OnOnDataReceived(float[] data, int v, bool mute, int sens, ref bool __result, Comms_CapturePipeline __instance)
+        {
+            //MelonLogger.Msg(ConsoleColor.DarkCyan, $"OnOnDataReceived Playing:{MuteTTSMod.playing}");
+            int dataLength = data.Length;
+            if (MuteTTSMod.playing)
+            { //Add something here to skip X samples till it finds volume at the start of the processing. Or further up the chain? -- TODO
+                byte[] buffer = new byte[dataLength];
+                int read = MuteTTSMod.stream.Read(buffer, 0, dataLength);
+                //MelonLogger.Msg(ConsoleColor.Magenta, $"read:{read}  MuteTTSMod.stream:{MuteTTSMod.stream.Length} pos:{MuteTTSMod.stream.Position}");
+
+                if (read == 0)
+                {
+                    MuteTTSMod.Instance.SetParam("MuteTTSplaying", 0f);
+                    MuteTTSMod.Instance.MuteSpeakToggle(false);
+                    MuteTTSMod.playing = false;
+                    MuteTTSMod.playingTone = false;
+                }
+                else
+                {
+                    for (int i = 0; i < dataLength; i++)
+                    {
+                        if (i < read)
+                            data[i] = ((float)buffer[i] - 128) / 128;
+                        else
+                            data[i] = 0;
+                    }
+                }
+
+                float cumVol = 0.0f;
+                for (int index = 0; index < data.Length; ++index)
+                {
+                    cumVol += Mathf.Pow(data[index], 2f);
+                }
+                __instance._rawAmplitude = Mathf.Clamp(Mathf.Sqrt(cumVol), 0.0f, 1f);
+                if (__instance._rawAmplitude < 1.0 / 1000.0)
+                    __instance._rawAmplitude = 0.0f;
+                //MelonLogger.Msg(ConsoleColor.Green, $"cumVol:{cumVol} rawAmp:{__instance._rawAmplitude}");
+                __instance._thresholdHandler.Process(false, __instance._rawAmplitude);
+                __instance.OnFilterRead(data, 1);
+                __result = true;
+                return false;
+            }
+            else if (MuteTTSMod.blockMic.Value)
+            {
+                if (MuteTTSMod.blockMicAlert.Value)
+                {
+                    float sum = 0;
+                    int count = 0;
+                    for (int i = 0; i < data.Length; i++)
+                    {
+                        sum += Math.Abs(data[i] * 1000);
+                        count++;
+                        data[i] = 0;
+                    }
+                    if ((sum / count) > 15)
+                    {
+                        MuteTTSMod.MicIsBlocked();
+                        //MelonLogger.Msg(ConsoleColor.Cyan, $"Heard: {sum / count} - {sum} - {count}");
+                    }
+                }
+                for (int i = 0; i < dataLength; i++)
+                {
+                    data[i] = 0;
+                }
+                __result = false;
+                return false;
+            }
+            return true;
+        }
+
         [HarmonyPostfix]
-        static void SendToWorldUi(string value)
+        [HarmonyPatch(typeof(ViewManager), nameof(ViewManager.SendToWorldUi))]
+        internal static void OnSendToWorldUi(string value)
         {
             MuteTTSMod.OnKeyboardSubmitted?.Invoke(value);
 
