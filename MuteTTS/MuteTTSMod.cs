@@ -29,7 +29,7 @@ namespace MuteTTS
 {
     public class MuteTTSMod : MelonMod
     {
-        public const string versionStr = "1.3";
+        public const string versionStr = "1.3.1";
 
         public static MuteTTSMod Instance;
         private Thread _mainThread;
@@ -460,23 +460,23 @@ namespace MuteTTS
 
         public void MuteSpeakToggle(bool unmute)
         { //This logic should be redone?
-            MelonLogger.Msg(System.ConsoleColor.Green, $"MuteSpeakToggle: {unmute}");
-            MelonLogger.Msg($"unMuteRunning:{unMuteRunning} - lastMuteValue:{lastMuteValue}");
+            //MelonLogger.Msg(System.ConsoleColor.Green, $"MuteSpeakToggle: {unmute}");
+            //MelonLogger.Msg($"unMuteRunning:{unMuteRunning} - lastMuteValue:{lastMuteValue}");
             if (!unMuteWhileSpeaking.Value) return;
             if (unmute && !unMuteRunning)
             {
                 unMuteRunning = true;
                 lastMuteValue = Comms_Manager.IsMicMuted;
                 SetMicMute(false); //Unmute mic
-                MelonLogger.Msg(System.ConsoleColor.DarkYellow, $"Unmute Mic - unMuteRunning:{unMuteRunning} - lastMuteValue:{lastMuteValue}");
+                //MelonLogger.Msg(System.ConsoleColor.DarkYellow, $"Unmute Mic - unMuteRunning:{unMuteRunning} - lastMuteValue:{lastMuteValue}");
             }
             else if (!unmute && unMuteRunning)
             {
-                MelonLogger.Msg(System.ConsoleColor.Yellow, $"Mute Mic 1");
+                //MelonLogger.Msg(System.ConsoleColor.Yellow, $"Mute Mic 1");
 
                 unMuteRunning = false;
                 SetMicMute(lastMuteValue);
-                MelonLogger.Msg(System.ConsoleColor.Yellow, $"Mute Mic 2");
+                //MelonLogger.Msg(System.ConsoleColor.Yellow, $"Mute Mic 2");
             }
         }
 
@@ -484,7 +484,7 @@ namespace MuteTTS
         {
             EnqueueIfNotMainThread(() =>
             {
-                MelonLogger.Msg($"SetMicMute {muted}");
+                //MelonLogger.Msg($"SetMicMute {muted}");
                 AudioManagement.SetMicrophoneActive(!muted);
             });
         }
