@@ -1,10 +1,18 @@
-﻿using ABI_RC.Core.InteractionSystem;
+﻿using ABI_RC.Core;
+using ABI_RC.Core.Base;
+using ABI_RC.Core.InteractionSystem;
+using ABI_RC.Core.Player;
+using ABI_RC.Core.UI;
+using ABI_RC.Core.UI.UIRework.Managers;
 using ABI_RC.Systems.Communications;
+using ABI_RC.Systems.Communications.Audio.Components;
+using cohtml;
 using HarmonyLib;
 using MelonLoader;
 using MuteTTS;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -14,12 +22,6 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
-using System.Collections.Generic;
-using ABI_RC.Core.Player;
-using ABI_RC.Core.Base;
-using ABI_RC.Core;
-using ABI_RC.Core.UI;
-using ABI_RC.Systems.Communications.Audio.Components;
 
 [assembly: MelonInfo(typeof(MuteTTSMod), "MuteTTS", MuteTTSMod.versionStr, "Nirvash, Eric van Fandenfart")] //Put Nirvash first so people know who to complain to if something breaks
 [assembly: MelonGame]
@@ -29,7 +31,7 @@ namespace MuteTTS
 {
     public class MuteTTSMod : MelonMod
     {
-        public const string versionStr = "1.3.1";
+        public const string versionStr = "1.3.4";
 
         public static MuteTTSMod Instance;
         private Thread _mainThread;
@@ -187,7 +189,7 @@ namespace MuteTTS
         public void SetParam(string name, float value)
         {
             //MelonLogger.Msg($"Setting {name} to {value}");
-            if (parmDriving.Value) PlayerSetup.Instance.animatorManager.SetParameter(name, value);
+            if (parmDriving.Value) PlayerSetup.Instance.AnimatorManager.SetParameter(name, value);
         }
 
         public void KeyboardParam(bool state)
@@ -511,7 +513,9 @@ namespace MuteTTS
         public static void OpenKeyboard(string currentValue, Action<string> callback)
         {
             OnKeyboardSubmitted = callback;
-            ViewManager.Instance.openMenuKeyboard(currentValue);
+
+            KeyboardManager.Instance.ShowKeyboard(currentValue, new Action<string>(OnKeyboardSubmitted), "MuteTTS Message", title: "Send a MuteTTS Mod Message");
+            //ViewManager.Instance.openMenuKeyboard(currentValue);
         }
 
         //https://github.com/SDraw/ml_mods_cvr/blob/master/ml_fpt/resources/menu.js
@@ -521,19 +525,20 @@ namespace MuteTTS
 
             while (ViewManager.Instance == null)
                 yield return null;
-            while (ViewManager.Instance.gameMenuView == null)
+            while (ViewManager.Instance.cohtmlView.View == null)
                 yield return null;
-            while (ViewManager.Instance.gameMenuView.Listener == null)
+            while (ViewManager.Instance.cohtmlView.Listener == null)
                 yield return null;
 
-            ViewManager.Instance.gameMenuView.Listener.ReadyForBindings += () =>
+
+            ViewManager.Instance.cohtmlView.Listener.ReadyForBindings += () =>
             {
-                ViewManager.Instance.gameMenuView.View.RegisterForEvent("MelonMod_MuteTTS_Action", new Action(OpenTTSInput));
+                ViewManager.Instance.cohtmlView.View.RegisterForEvent("MelonMod_MuteTTS_Action", new Action(OpenTTSInput));
             };
 
-            ViewManager.Instance.gameMenuView.Listener.FinishLoad += (_) =>
+            ViewManager.Instance.cohtmlView.Listener.FinishLoad += (_) =>
             { //Thanks SDraw for better formatting https://github.com/SDraw/ml_mods_cvr/blob/e55f4b3098d131e6fcd3c942eec01108b3f9da2d/ml_bft/resources/mod_menu.js#L1
-                ViewManager.Instance.gameMenuView.View._view.ExecuteScript(@"﻿{
+                ViewManager.Instance.cohtmlView.View._view.ExecuteScript(@"﻿{
             let l_block = document.createElement('div');
             l_block.innerHTML = `
             <div class =""settings-subcategory"">
@@ -545,12 +550,15 @@ namespace MuteTTS
             document.getElementById('settings-implementation').appendChild(l_block);
             }");
 
-                ViewManager.Instance.gameMenuView.View._view.ExecuteScript(@"﻿{
+                ViewManager.Instance.cohtmlView.View._view.ExecuteScript(@"﻿{
             let l_block = document.createElement('div');
             l_block.innerHTML = `
             <div class=""action-btn button"" onclick=""engine.trigger('MelonMod_MuteTTS_Action');"">MuteTTS Mod</div>
             `;
-            document.querySelector('.content-shortcuts-2 .btn-row-wrapper.actions').appendChild(l_block);
+            let l_rows = document.querySelectorAll('.home-right .content-shortcuts .btn-row-wrapper.actions');
+            if (l_rows && l_rows.length > 0) {
+                l_rows[l_rows.length - 2].appendChild(l_block);
+            }
             }");
             };
         }
@@ -632,13 +640,13 @@ namespace MuteTTS
             return true;
         }
 
-        [HarmonyPostfix]
-        [HarmonyPatch(typeof(ViewManager), nameof(ViewManager.SendToWorldUi))]
-        internal static void OnSendToWorldUi(string value)
-        {
-            MuteTTSMod.OnKeyboardSubmitted?.Invoke(value);
+        //[HarmonyPostfix]
+        //[HarmonyPatch(typeof(ABI_RC.Core.UI.UIRework.Managers.KeyboardManager), nameof(KeyboardManager.OnKeyboardSubmit))]
+        //internal static void OnOnKeyboardSubmit(string value)
+        //{
+        //    MuteTTSMod.OnKeyboardSubmitted?.Invoke(value);
 
-            MuteTTSMod.OnKeyboardSubmitted = null;
-        }
+        //    MuteTTSMod.OnKeyboardSubmitted = null;
+        //}
     }
 }
